@@ -1,0 +1,21 @@
+channels:
+  - conda-forge
+  - bioconda
+  - r
+  - defaults
+dependencies:
+  - bcftools=1.8
+  - graphviz=2.38.0
+  - python=3.6
+  - samtools=1.8
+  - snakemake=4.8.1
+  - pyyaml=3.12
+  - whatshap=0.14.1
+  - vcflib=1.0.0_rc1
+  - htslib=1.8
+  - freebayes=1.0.2
+  - bowtie2=2.3.4.1
+  - bedtools=2.27.1
+  - picard=2.18.4
+  - future=0.16.0
+  - flexbar=2.5.0

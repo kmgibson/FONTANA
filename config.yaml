@@ -1,0 +1,34 @@
+samples: list.txt
+adapters:
+    SE: "adapters_SE.fa"
+flexbar:
+    adapter-trim-end: "RIGHT"
+    adapter-min-overlap: 7
+    pre-trim-left: 5
+    max-uncalled: 150
+    min-read-length: 25
+    qtrim: "TAIL"
+    qtrim-format: "sanger"
+    qtrim-threshold: 20
+    zip-output: "GZ"
+bt2idx: "refs/hg19/Sequence/Bowtie2Index/genome"
+bowtie2:
+    sensitive: ""
+    rg: "PL:IonTorrent"
+mh_bedfile: "refs/chr1_mh.bed"
+fasta_ref: "refs/hg19/Sequence/Bowtie2Index/genome.fa"
+freebayes:
+    variant:
+        min-alternate-count: "5"
+        min-mapping-quality: "20"
+        min-base-quality: "30"
+        use-duplicate-reads: ""
+    haps:
+        min-mapping-quality: "20"
+        min-base-quality: "30"
+        use-duplicate-reads: ""
+        min-repeat-size: "0"
+        no-partial-observations: ""
+        max-complex-gap: "400"
+        haplotype-length: "500"
+vcffilter_qual: 20
