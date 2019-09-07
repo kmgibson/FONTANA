@@ -1,0 +1,57 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Haplotype 
+"""
+
+localrules: index_vcf
+
+rule freebayes_variant_call:
+    input:
+        "bam_list.txt"
+    output:
+        "vars.vcf"
+    conda:
+        "envs/haplotype.yaml"
+    params:
+        freebayes_args = dict_args(config['freebayes']['variant'])
+    shell:
+        "freebayes "
+        "--fasta-reference {config[fasta_ref]} "
+        "{params.freebayes_args} "
+        "--targets {config[mh_bedfile]} "
+        "-L {input} | "
+        'vcffilter -f "QUAL > {config[vcffilter_qual]}" > {output} '
+
+
+rule index_vcf:
+    input:
+        "vars.vcf"
+    output:
+        "vars.vcf.gz",
+        "vars.vcf.gz.tbi"
+    conda:
+        "envs/haplotype.yaml"
+    shell:
+        "bgzip {input} && "
+        "tabix {output[0]}"
+
+
+rule freebayes_hap:
+    input:
+        "bam_list.txt",
+        "vars.vcf.gz"
+    output:
+        "haps.vcf"
+    conda:
+        "envs/haplotype.yaml"
+    params:
+        freebayes_args = dict_args(config['freebayes']['haps'])
+    shell:
+        "freebayes "
+        "--fasta-reference {config[fasta_ref]} "
+        "--targets {config[mh_bedfile]} "
+        "--haplotype-basis-alleles {input[1]} "
+        "{params.freebayes_args} "
+        "-L {input[0]} > {output} "

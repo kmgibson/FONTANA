@@ -1,0 +1,205 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Process Illumina Data
+"""
+
+configfile: "config.yaml"
+
+''' Rules the do not need cluster job '''
+localrules: all_processing, complete_sample_processing, checkbamoutput, bamlist
+
+
+''' Rules '''
+
+rule all_processing:
+    input:
+        expand("samples/{s}/completed_processing.txt", s=SAMPLES)
+
+rule complete_sample_processing:
+    output:
+        touch("samples/{sampid}/completed_processing.txt")
+    input:
+        "samples/{sampid}/bam_status.txt",
+        "bam_list.txt",
+        "samples/{sampid}/bam_summary.txt",
+        "samples/{sampid}/bam_summary.txt",
+        "samples/{sampid}/spanning_summary.txt"
+
+rule rename_fastq_files:
+    output:
+        read1 = "samples/{sampid}/read1.fastq",
+        read2 = "samples/{sampid}/read2.fastq"
+    params:
+        outdir = "samples/{sampid}"
+    shell:
+     	"ln -sr {params.outdir}/*_1.fastq* {output.read1} && "
+        "ln -sr {params.outdir}/*_2.fastq* {output.read2} "
+
+
+rule trimmomatic:
+    input:
+        read1 = "samples/{sampid}/read1.fastq",
+        read2 = "samples/{sampid}/read2.fastq",
+        trim_adapters = config['adapters']['PE']
+    output:
+        trimmedfq1 = "samples/{sampid}/trimmed_1.fastq.gz",
+        trimmedfq2 = "samples/{sampid}/trimmed_2.fastq.gz",
+        UPtrimmedfq1 = "samples/{sampid}/UPtrimmed_1.fastq.gz",
+        UPtrimmedfq2 = "samples/{sampid}/UPtrimmed_2.fastq.gz",        
+        summary = "samples/{sampid}/trimmomatic_summary.out",
+        trimlog = "samples/{sampid}/trimmomatic_log.out"
+    params:
+        leading = config['trimmomatic']['leading'],
+        trailing = config['trimmomatic']['trailing'],
+        slidingwindow = config['trimmomatic']['slidingwindow'],
+        minlen = config['trimmomatic']['minlen']
+    threads: snakemake.utils.available_cpu_count()
+    conda:
+        "envs/processIllumina.yaml"
+    shell:
+        "trimmomatic PE "
+        "-threads {threads} "
+        "-phred33 "
+        "-trimlog {output.trimlog} "
+        "-summary {output.summary} "
+        "{input.read1} "
+        "{input.read2} "
+        "{output.trimmedfq1} "
+        "{output.UPtrimmedfq1} "
+        "{output.trimmedfq2} "
+        "{output.UPtrimmedfq2} "
+        "LEADING:{params.leading} "
+        "TRAILING:{params.trailing} "
+        "SLIDINGWINDOW:{params.slidingwindow} "
+        "MINLEN:{params.minlen} "
+        "ILLUMINACLIP:{input.trim_adapters}:2:30:10 "
+
+rule flash:
+    input:
+        trimmedfq1 = "samples/{sampid}/trimmed_1.fastq.gz",
+        trimmedfq2 = "samples/{sampid}/trimmed_2.fastq.gz",
+    output:
+        merg_paired = "samples/{sampid}/merged.extendedFrags.fastq",
+        merg_read1 = "samples/{sampid}/merged.notCombined_1.fastq",
+        merg_read2 = "samples/{sampid}/merged.notCombined_2.fastq",
+        merg_hist = "samples/{sampid}/merged.hist",
+        merg_histogram = "samples/{sampid}/merged.histogram",
+        flash_log = "samples/{sampid}/flash.log"
+    params:
+        flash_args = dict_args(config['flash']),
+        out = "samples/{sampid}/merged"
+    threads: snakemake.utils.available_cpu_count()
+    conda:
+        "envs/processIllumina.yaml"
+    shell:
+        "(flash "
+        "-o {params.out} "
+        "{params.flash_args} "
+        "{input.trimmedfq1} "
+        "{input.trimmedfq2}) "
+        "2>&1 | tee {output.flash_log}"
+
+rule align_hg19:
+    ''' Align trimmed FASTQ to HG19 '''
+    input:
+        "samples/{sampid}/merged.extendedFrags.fastq",
+        "samples/{sampid}/merged.notCombined_1.fastq",
+        "samples/{sampid}/merged.notCombined_2.fastq",
+        ancient(expand(config['bt2idx'] + ".{i}.bt2", i = range(1, 5))),
+        ancient(expand(config['bt2idx'] + ".rev.{i}.bt2", i = range(1, 3)))
+    output:
+        "samples/{sampid}/bt2.unsorted.bam",
+        "samples/{sampid}/bt2.summary.txt"
+    params:
+        bowtie2_args = dict_args(config['bowtie2'])
+    threads: snakemake.utils.available_cpu_count()
+    conda:
+        "envs/processIllumina.yaml"
+    shell:
+        "(bowtie2 "
+        "-p {threads} "
+        "{params.bowtie2_args} "
+        "--rg-id $(basename $(dirname {input[0]})) "
+        "--rg SM:$(basename $(dirname {input[0]})) "
+        "-x {config[bt2idx]} "
+        "-U {input[0]} "
+        "-1 {input[1]} "
+        "-2 {input[2]} | "
+        "samtools view -b > {output[0]}"
+        ") 3>&1 1>&2 2>&3 | tee {output[1]} "
+
+
+rule sortbam1:
+    ''' sort and index unsorted.bam file '''
+    input:
+        "samples/{sampid}/bt2.unsorted.bam"
+    output:
+        "samples/{sampid}/bt2.sorted.bam",
+        "samples/{sampid}/bt2.sorted.bam.bai"
+    conda:
+        "envs/processIllumina.yaml"
+    shell:
+        "samtools sort {input} -o {output[0]} && "
+        "samtools index {output[0]}"
+
+rule filter_spanning_reads:
+    ''' filter only spanned reads for downstream processing '''
+    input:
+        "samples/{sampid}/bt2.sorted.bam"
+    output:
+        "samples/{sampid}/spanning.bam",
+        "samples/{sampid}/spanning_summary.txt"
+    conda:
+        "envs/processIllumina.yaml"
+    shell:
+         "python filter_spanning_reads.py {input} {config[mh_bedfile]} {output[0]} "
+         "> {output[1]}"
+
+
+rule sortbam2:
+    ''' sort and index spanning.bam file '''
+    input:
+        "samples/{sampid}/spanning.bam"
+    output:
+        "samples/{sampid}/spanning.sorted.bam",
+        "samples/{sampid}/spanning.sorted.bam.bai"
+    conda:
+        "envs/processIllumina.yaml"
+    shell:
+        "samtools sort {input} -o {output[0]} && "
+        "samtools index {output[0]}"
+
+rule checkbam:
+    input:
+        "samples/{sampid}/spanning.sorted.bam"
+    output:
+        "samples/{sampid}/bam_summary.txt"
+    conda:
+        "envs/processIllumina.yaml"
+    shell:
+        "picard ValidateSamFile "
+        "I={input} "
+        "MODE=SUMMARY "
+        "SKIP_MATE_VALIDATION=false "
+        "IGNORE=MATE_NOT_FOUND > {output}"
+
+
+rule checkbamoutput:
+    input:
+        "samples/{sampid}/bam_summary.txt"
+    output:
+        "samples/{sampid}/bam_status.txt"
+    params:
+        outdir = "samples/{sampid}"
+    shell:
+        "bash checkbamoutput.sh {input} {output} {params.outdir} "
+
+rule bamlist:
+    input:
+        expand("samples/{s}/bam_status.txt", s=SAMPLES)
+    output:
+        "bam_list.txt"
+    shell: 
+        "ls samples/*/spanning.sorted.bam >> {output} "

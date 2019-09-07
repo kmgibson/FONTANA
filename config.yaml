@@ -1,22 +1,21 @@
 samples: list.txt
+platform: IonTorrent #Illumina # either Illumina or IonTorrent
 adapters:
     SE: "adapters_SE.fa"
-flexbar:
-    adapter-trim-end: "RIGHT"
-    adapter-min-overlap: 7
-    pre-trim-left: 5
-    max-uncalled: 150
-    min-read-length: 25
-    qtrim: "TAIL"
-    qtrim-format: "sanger"
-    qtrim-threshold: 20
-    zip-output: "GZ"
-bt2idx: "refs/hg19/Sequence/Bowtie2Index/genome"
+    PE: "NexteraPE-PE.fa"
+flash:
+    M: "300" #Maximum overlap length expected in approximately 90% of read pairs
+trimmomatic:
+    leading: "3"
+    trailing: "3"
+    slidingwindow: "4:15"
+    minlen: "36"
+bt2idx: "refs/Bowtie2Index/hg19"
 bowtie2:
     sensitive: ""
-    rg: "PL:IonTorrent"
-mh_bedfile: "refs/chr1_mh.bed"
-fasta_ref: "refs/hg19/Sequence/Bowtie2Index/genome.fa"
+    rg: "PL:Illumina"
+mh_bedfile: "refs/mh74_excel_mh.bed"
+fasta_ref: "refs/Bowtie2Index/hg19.fa"
 freebayes:
     variant:
         min-alternate-count: "5"

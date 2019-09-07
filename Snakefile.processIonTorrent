@@ -1,0 +1,175 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Process IonTorrent Data
+"""
+
+configfile: "config.yaml"
+
+''' Rules the do not need cluster job '''
+localrules: all_processing, complete_sample_processing, checkbamoutput, bamlist
+
+
+''' Rules '''
+
+rule all_processing:
+    input:
+        expand("samples/{s}/completed_processing.txt", s=SAMPLES)
+
+rule complete_sample_processing:
+    output:
+        touch("samples/{sampid}/completed_processing.txt")
+    input:
+        "samples/{sampid}/bam_status.txt",
+        "bam_list.txt",
+        "samples/{sampid}/bam_summary.txt",
+        "samples/{sampid}/bam_summary.txt",
+        "samples/{sampid}/spanning_summary.txt"
+
+
+# snakemake automatically checks if the files are present; if not, it outputs: "Missing input files for rule .."
+rule bamtofastq:
+    ''' Covert IonTorrent .BAM file back to FASTQ '''
+    input:
+        "samples/{sampid}/original.bam"
+    output:
+        "samples/{sampid}/original.fq"
+    conda:
+        "envs/processIonTorrent.yaml"
+    shell:
+        "bedtools bamtofastq -i {input} -fq {output}"
+
+
+rule trimmomatic:
+    input:
+        fq = "samples/{sampid}/original.fq",
+        trim_adapters = config['adapters']['SE']
+    output:
+        trimmedfq = "samples/{sampid}/trimmed.fastq.gz",
+        summary = "samples/{sampid}/trimmomatic_summary.out",
+        trimlog = "samples/{sampid}/trimmomatic_log.out"
+    params:
+        leading = config['trimmomatic']['leading'],
+        trailing = config['trimmomatic']['trailing'],
+        slidingwindow = config['trimmomatic']['slidingwindow'],
+        minlen = config['trimmomatic']['minlen']
+    threads: snakemake.utils.available_cpu_count()
+    conda:
+        "envs/processIonTorrent.yaml"
+    shell:
+        "trimmomatic SE "
+        "-threads {threads} "
+        "-phred33 "
+        "-trimlog {output.trimlog} "
+        "-summary {output.summary} "
+        "{input.fq} "
+        "{output.trimmedfq} "
+        "LEADING:{params.leading} "
+        "TRAILING:{params.trailing} "
+        "SLIDINGWINDOW:{params.slidingwindow} "
+        "MINLEN:{params.minlen} "
+        "ILLUMINACLIP:{input.trim_adapters}:2:30:10 "
+
+
+rule align_hg19:
+    ''' Align trimmed FASTQ to HG19 '''
+    input:
+        "samples/{sampid}/trimmed.fastq.gz",
+        expand(config['bt2idx'] + ".{i}.bt2", i = range(1, 5)),
+        expand(config['bt2idx'] + ".rev.{i}.bt2", i = range(1, 3))
+    output:
+        "samples/{sampid}/bt2.unsorted.bam",
+        "samples/{sampid}/bt2.summary.txt"
+    params:
+        bowtie2_args = dict_args(config['bowtie2'])
+    threads: snakemake.utils.available_cpu_count()
+    conda:
+        "envs/processIonTorrent.yaml"
+    shell:
+        "(bowtie2 "
+        "-p {threads} "
+        "{params.bowtie2_args} "
+        "--rg-id $(basename $(dirname {input[0]})) "
+        "--rg SM:$(basename $(dirname {input[0]})) "
+        "-x {config[bt2idx]} "
+        "-U {input[0]} | "
+        "samtools view -b > {output[0]}"
+        ") 3>&1 1>&2 2>&3 | tee {output[1]} "
+
+
+rule sortbam1:
+    ''' sort and index unsorted.bam file '''
+    input:
+        "samples/{sampid}/bt2.unsorted.bam"
+    output:
+        "samples/{sampid}/bt2.sorted.bam",
+        "samples/{sampid}/bt2.sorted.bam.bai"
+    conda:
+        "envs/processIonTorrent.yaml"
+    shell:
+        "samtools sort {input} -o {output[0]} && "
+        "samtools index {output[0]}"
+
+
+rule filter_spanning_reads:
+    ''' filter only spanned reads for downstream processing '''
+    input:
+        "samples/{sampid}/bt2.sorted.bam"
+    output:
+        "samples/{sampid}/spanning.bam",
+        "samples/{sampid}/spanning_summary.txt"
+    conda:
+        "envs/processIonTorrent.yaml"
+    shell:
+         "python filter_spanning_reads.py {input} {config[mh_bedfile]} {output[0]} "
+         "> {output[1]}"
+
+
+rule sortbam2:
+    ''' sort and index spanning.bam file '''
+    input:
+        "samples/{sampid}/spanning.bam"
+    output:
+        "samples/{sampid}/spanning.sorted.bam",
+        "samples/{sampid}/spanning.sorted.bam.bai"
+    conda:
+        "envs/processIonTorrent.yaml"
+    shell:
+        "samtools sort {input} -o {output[0]} && "
+        "samtools index {output[0]}"
+        
+
+rule checkbam:
+    input:
+        "samples/{sampid}/spanning.sorted.bam"
+    output:
+        "samples/{sampid}/bam_summary.txt"
+    conda:
+        "envs/processIonTorrent.yaml"
+    shell:
+        "picard ValidateSamFile "
+        "I={input} "
+        "MODE=SUMMARY "
+        "SKIP_MATE_VALIDATION=false "
+        "IGNORE=MATE_NOT_FOUND > {output}"
+
+
+rule checkbamoutput:
+    input:
+        "samples/{sampid}/bam_summary.txt"
+    output:
+        "samples/{sampid}/bam_status.txt"
+    params:
+        outdir = "samples/{sampid}"
+    shell:
+        "bash checkbamoutput.sh {input} {output} {params.outdir} "
+
+
+rule bamlist:
+    input:
+        expand("samples/{s}/bam_status.txt", s=SAMPLES)
+    output:
+        "bam_list.txt"
+    shell: 
+        "ls samples/*/spanning.sorted.bam >> {output} "

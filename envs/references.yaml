@@ -1,9 +1,9 @@
+name: references
 channels:
   - conda-forge
   - bioconda
   - r
   - defaults
 dependencies:
-  - snakemake=4.8.1
-  - future
-  - python=3.6  
+  - pigz
+  

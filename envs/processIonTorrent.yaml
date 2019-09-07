@@ -1,0 +1,14 @@
+name: processIonTorrent
+channels:
+  - conda-forge
+  - bioconda
+  - r
+  - defaults
+dependencies:
+  - bedtools=2.27.1
+  - trimmomatic
+  - bowtie2=2.3.4.1
+  - samtools=1.8
+  - picard=2.18.4
+  - pip:
+    - pysam

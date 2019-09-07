@@ -1,9 +1,10 @@
+name: haplotype
 channels:
   - conda-forge
   - bioconda
   - r
   - defaults
 dependencies:
-  - snakemake=4.8.1
-  - future
-  - python=3.6  
+  - vcflib=1.0.0_rc1
+  - htslib=1.8
+  - freebayes=1.0.2
