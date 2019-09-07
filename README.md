@@ -30,11 +30,26 @@ $enter_password
 cd /lustre/groups/podinigrp 
 
 # here we are creating a directory for you and creating a samples directory
-mkdir -p $name/fontana/samples
+mkdir -p $name/fontana
 
-# here we are moving into your directory
-cd $name/fontana
+cd $name
 ```
+
+## Downloading FONtANA repository from github.
+We need to download all the snakemake files and other files from github. See [here](https://www.git-tower.com/learn/git/commands/git-clone) for help on cloning an existing repository.
+
+```
+# make sure you are in the correct folder. Your folder
+pwd 
+
+# should be in /$name directory. If not, move there.
+git clone git@github.com:kmgibson/FONTANA.git fontana
+
+cd fontana
+ls
+```
+
+
 ---
 ## Downloading/Uploading data to Colonial One
 
@@ -59,7 +74,12 @@ If you have done this successfully, your files on your computer in `$directory` 
 3. Getting a list of all samples, renaming the files and creating a directory for each sample.
 
 ```
-cd samples &&
+# here we are creating a directory for you and creating a samples directory
+pwd # you should be in fontana directory
+mkdir -p samples
+cd samples
+
+module load samtools
 
 for f in *.bam; do 
     name=$(echo $f |awk -F[_.] '{print $2}')
@@ -82,27 +102,11 @@ for f in *.bam; do
 done
 
 # creates a list of just the directory names. This file is used in FONtANA.
-ls -d Ion_* > ../list.txt 
-cd ../..
+ls -d Ion_* > ../list.txt
+rm dirsamp.txt
 ```
 
 ---
-
-
-## Downloading FONtANA repository from github.
-We need to download all the snakemake files and other files from github. See [here](https://www.git-tower.com/learn/git/commands/git-clone) for help on cloning an existing repository.
-
-```
-# make sure you are in the correct folder. 
-pwd
-
-# should be in /$name directory. If not, move there.
-git clone git@github.com:kmgibson/FONTANA.git fontana
-
-cd fontana
-ls
-
-```
 
 Your directory structure should now look like such:
 
@@ -202,6 +206,28 @@ source activate fontana
 # view the config.yaml file
 cat config.yaml
 ```
+
+You should see something like this:
+![config.yaml file](other/config_screenshot.png)
+
+You will need to replace the bedfile listed here with whatever bedfile you would like to use. I have put two that I have been using in the `refs` directory if you would like to use them.
+
+A bedfile should look like this. For more information regarding bedfiles, see [here](https://useast.ensembl.org/info/website/upload/bed.html), [here](https://www.genomatix.de/online_help/help_regionminer/bedformat_help.html), [here](https://bedtools.readthedocs.io/en/latest/content/general-usage.html) or [here](https://genome.ucsc.edu/FAQ/FAQformat.html#format1):
+
+```
+chr#	start_pos		end_pos	MH_name	score	strand_direction	.	track_lines
+```
+
+Example:
+
+```
+chr1	1486826	1487087	mh01KK-172	0	+	.	GENE_ID=SP_1.27585
+chr1	216634369	216634540	mh01kk-002	0	+	.	GENE_ID=SP_5.6236
+chr2	228092294	228092491	mh02KK-136	0	+	.	GENE_ID=SP_29.8907
+chr9	135862470	135862637	mh09KK-157	0	+	.	GENE_ID=SP_45.18475
+
+```
+
 
  
 4. Testing to see what FONtANA will run
