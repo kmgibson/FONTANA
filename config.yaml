@@ -1,8 +1,8 @@
 samples: list.txt
 platform: IonTorrent #Illumina # either Illumina or IonTorrent
 adapters:
-    SE: "adapters_SE.fa"
-    PE: "NexteraPE-PE.fa"
+    SE: "refs/adapters_SE.fa"
+    PE: "refs/NexteraPE-PE.fa"
 flash:
     M: "300" #Maximum overlap length expected in approximately 90% of read pairs
 trimmomatic:
