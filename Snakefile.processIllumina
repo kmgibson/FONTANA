@@ -154,7 +154,7 @@ rule filter_spanning_reads:
     conda:
         "envs/processIllumina.yaml"
     shell:
-         "python filter_spanning_reads.py {input} {config[mh_bedfile]} {output[0]} "
+         "python scripts/filter_spanning_reads.py {input} {config[mh_bedfile]} {output[0]} "
          "> {output[1]}"
 
 
@@ -194,7 +194,7 @@ rule checkbamoutput:
     params:
         outdir = "samples/{sampid}"
     shell:
-        "bash checkbamoutput.sh {input} {output} {params.outdir} "
+        "bash scripts/checkbamoutput.sh {input} {output} {params.outdir} "
 
 rule bamlist:
     input:
