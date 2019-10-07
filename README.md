@@ -52,6 +52,8 @@ cd fontana
 ls
 ```
 
+![example of what it looks like](https://github.com/kmgibson/FONTANA/blob/master/other/readme_fig2.png)
+
 
 ---
 ## Downloading/Uploading data to Colonial One
@@ -72,16 +74,17 @@ This is saying upload directory "MP" to Colonial One at this location. You will 
 rsync -P -av "$directory" $name@login3.colonialone.gwu.edu:/lustre/groups/podinigrp/$name/fontana/samples
 ```
 
-If you have done this successfully, your files on your computer in `$directory` will be uploaded to Colonial One under the directory `samples`.
+If you have done this successfully, your files on your computer in `$directory` will be uploaded to Colonial One under the directory `samples/$directory `.
+
+![loading files onto colonial one](https://github.com/kmgibson/FONTANA/blob/master/other/readme_pic3.png) 
 
 3. Getting a list of all samples, renaming the files and creating a directory for each sample.
 
-```
-# here we are creating a directory for you and creating a samples directory
-pwd # you should be in fontana directory
-mkdir -p samples
-cd samples
+![samples in your directory](https://github.com/kmgibson/FONTANA/blob/master/other/readme_pic4.png)  
 
+```
+pwd # you should be in fontana directory
+cd samples/$directory
 module load samtools
 
 for f in *.bam; do 
@@ -90,7 +93,10 @@ for f in *.bam; do
     echo -e "${name}\t${samp}" >> dirsamp.txt # this gets a list of all samples
     echo $f
 done
+```
+![renaming samps](https://github.com/kmgibson/FONTANA/blob/master/other/readme_pic5.png)
 
+```
 # view this list
 cat dirsamp.txt
 
@@ -103,9 +109,16 @@ for f in *.bam; do
     mv $f Ion_${name}_${samp}
     mv Ion_${name}_${samp}/$f Ion_${name}_${samp}/original.bam
 done
+```
 
+![how your samples should now look](https://github.com/kmgibson/FONTANA/blob/master/other/readme_pic6.png)
+
+```
 # creates a list of just the directory names. This file is used in FONtANA.
 ls -d Ion_* > ../list.txt
+
+# this moves the samples to the correct directory
+mv Ion_* ../
 rm dirsamp.txt
 ```
 
@@ -141,6 +154,7 @@ Your directory structure should now look like such:
     └── README.md
 ```
 
+![directory structure](https://github.com/kmgibson/FONTANA/blob/master/other/readme7.png)
 
 ---
 
@@ -159,7 +173,7 @@ conda config --add channels bioconda
 conda config --add channels conda-forge
 
 # create conda enironment.
-conda create --name fontana --file environment.yaml
+conda env create --name fontana --file environment.yaml
 
 ```
 
@@ -196,10 +210,10 @@ module use /groups/podinigrp/shared/modulefiles
 module unload python
 module load miniconda3/4.3.27.1
 
-source activate fontana
+conda activate fontana
 
 # if that ^^ didn't work. Try:
-# conda activate fontana
+# source activate fontana
 
 ```
 
@@ -241,18 +255,29 @@ A dry run of FONtANA, to see what the program is going to do, and if your sample
 snakemake --use-conda --dryrun
 ```
 
+Should look something like this to begin with:
+![dryrun snakemake](https://github.com/kmgibson/FONTANA/blob/master/other/readme_pic8.png)
+
 Running FONtANA:
 
 ```
 snakemake --use-conda 
 ```
 
+Output should look like this:
+
+![](readme_snakemakeout)
+
+```
+```
+
 <br />
 <br />
 <br />
 
 ---
 ---
+Other - 
 
 /groups/podinigrp/shared/apps/miniconda3/4.3.27.1
 <br />
