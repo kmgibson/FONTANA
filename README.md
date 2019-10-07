@@ -35,6 +35,9 @@ mkdir -p $name/fontana
 cd $name
 ```
 
+![example logging in](https://github.com/kmgibson/FONTANA/blob/master/other/readme_fig1.png)
+
+
 ## Downloading FONtANA repository from github.
 We need to download all the snakemake files and other files from github. See [here](https://www.git-tower.com/learn/git/commands/git-clone) for help on cloning an existing repository.
 
