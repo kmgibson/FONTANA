@@ -15,17 +15,17 @@ localrules: all_processing, complete_sample_processing, checkbamoutput, bamlist
 
 rule all_processing:
     input:
-        expand("samples/{s}/completed_processing.txt", s=SAMPLES)
+        expand("samples/{s}/{f}/completed_processing.txt", s=SAMPLES, f=fontana_dir)
 
 rule complete_sample_processing:
     output:
-        touch("samples/{sampid}/completed_processing.txt")
+        touch("samples/{sampid}/{fontana}/completed_processing.txt")
     input:
-        "samples/{sampid}/bam_status.txt",
+        "samples/{sampid}/{fontana}/bam_status.txt",
         "bam_list.txt",
-        "samples/{sampid}/bam_summary.txt",
-        "samples/{sampid}/bam_summary.txt",
-        "samples/{sampid}/spanning_summary.txt"
+        "samples/{sampid}/{fontana}/bam_summary.txt",
+        "samples/{sampid}/{fontana}/bam_summary.txt",
+        "samples/{sampid}/{fontana}/spanning_summary.txt"
 
 rule rename_fastq_files:
     output:
@@ -44,12 +44,12 @@ rule trimmomatic:
         read2 = "samples/{sampid}/read2.fastq",
         trim_adapters = config['adapters']['PE']
     output:
-        trimmedfq1 = "samples/{sampid}/trimmed_1.fastq.gz",
-        trimmedfq2 = "samples/{sampid}/trimmed_2.fastq.gz",
-        UPtrimmedfq1 = "samples/{sampid}/UPtrimmed_1.fastq.gz",
-        UPtrimmedfq2 = "samples/{sampid}/UPtrimmed_2.fastq.gz",        
-        summary = "samples/{sampid}/trimmomatic_summary.out",
-        trimlog = "samples/{sampid}/trimmomatic_log.out"
+        trimmedfq1 = "samples/{sampid}/{fontana}/trimmed_1.fastq.gz",
+        trimmedfq2 = "samples/{sampid}/{fontana}/trimmed_2.fastq.gz",
+        UPtrimmedfq1 = "samples/{sampid}/{fontana}/UPtrimmed_1.fastq.gz",
+        UPtrimmedfq2 = "samples/{sampid}/{fontana}/UPtrimmed_2.fastq.gz",        
+        summary = "samples/{sampid}/{fontana}/trimmomatic_summary.out",
+        trimlog = "samples/{sampid}/{fontana}/trimmomatic_log.out"
     params:
         leading = config['trimmomatic']['leading'],
         trailing = config['trimmomatic']['trailing'],
@@ -78,18 +78,18 @@ rule trimmomatic:
 
 rule flash:
     input:
-        trimmedfq1 = "samples/{sampid}/trimmed_1.fastq.gz",
-        trimmedfq2 = "samples/{sampid}/trimmed_2.fastq.gz",
+        trimmedfq1 = "samples/{sampid}/{fontana}/trimmed_1.fastq.gz",
+        trimmedfq2 = "samples/{sampid}/{fontana}/trimmed_2.fastq.gz",
     output:
-        merg_paired = "samples/{sampid}/merged.extendedFrags.fastq",
-        merg_read1 = "samples/{sampid}/merged.notCombined_1.fastq",
-        merg_read2 = "samples/{sampid}/merged.notCombined_2.fastq",
-        merg_hist = "samples/{sampid}/merged.hist",
-        merg_histogram = "samples/{sampid}/merged.histogram",
-        flash_log = "samples/{sampid}/flash.log"
+        merg_paired = "samples/{sampid}/{fontana}/merged.extendedFrags.fastq",
+        merg_read1 = "samples/{sampid}/{fontana}/merged.notCombined_1.fastq",
+        merg_read2 = "samples/{sampid}/{fontana}/merged.notCombined_2.fastq",
+        merg_hist = "samples/{sampid}/{fontana}/merged.hist",
+        merg_histogram = "samples/{sampid}/{fontana}/merged.histogram",
+        flash_log = "samples/{sampid}/{fontana}/flash.log"
     params:
         flash_args = dict_args(config['flash']),
-        out = "samples/{sampid}/merged"
+        out = "samples/{sampid}/{fontana}/merged"
     threads: snakemake.utils.available_cpu_count()
     conda:
         "envs/processIllumina.yaml"
@@ -104,14 +104,14 @@ rule flash:
 rule align_hg19:
     ''' Align trimmed FASTQ to HG19 '''
     input:
-        "samples/{sampid}/merged.extendedFrags.fastq",
-        "samples/{sampid}/merged.notCombined_1.fastq",
-        "samples/{sampid}/merged.notCombined_2.fastq",
+        "samples/{sampid}/{fontana}/merged.extendedFrags.fastq",
+        "samples/{sampid}/{fontana}/merged.notCombined_1.fastq",
+        "samples/{sampid}/{fontana}/merged.notCombined_2.fastq",
         ancient(expand(config['bt2idx'] + ".{i}.bt2", i = range(1, 5))),
         ancient(expand(config['bt2idx'] + ".rev.{i}.bt2", i = range(1, 3)))
     output:
-        "samples/{sampid}/bt2.unsorted.bam",
-        "samples/{sampid}/bt2.summary.txt"
+        "samples/{sampid}/{fontana}/bt2.unsorted.bam",
+        "samples/{sampid}/{fontana}/bt2.summary.txt"
     params:
         bowtie2_args = dict_args(config['bowtie2'])
     threads: snakemake.utils.available_cpu_count()
@@ -121,8 +121,8 @@ rule align_hg19:
         "(bowtie2 "
         "-p {threads} "
         "{params.bowtie2_args} "
-        "--rg-id $(basename $(dirname {input[0]})) "
-        "--rg SM:$(basename $(dirname {input[0]})) "
+        "--rg-id $(basename $(dirname $(dirname {input[0]}))) "
+        "--rg SM:$(basename $(dirname $(dirname {input[0]}))) "
         "-x {config[bt2idx]} "
         "-U {input[0]} "
         "-1 {input[1]} "
@@ -134,23 +134,24 @@ rule align_hg19:
 rule sortbam1:
     ''' sort and index unsorted.bam file '''
     input:
-        "samples/{sampid}/bt2.unsorted.bam"
+        "samples/{sampid}/{fontana}/bt2.unsorted.bam"
     output:
-        "samples/{sampid}/bt2.sorted.bam",
-        "samples/{sampid}/bt2.sorted.bam.bai"
+        "samples/{sampid}/{fontana}/bt2.sorted.bam",
+        "samples/{sampid}/{fontana}/bt2.sorted.bam.bai"
     conda:
         "envs/processIllumina.yaml"
     shell:
         "samtools sort {input} -o {output[0]} && "
         "samtools index {output[0]}"
 
+
 rule filter_spanning_reads:
     ''' filter only spanned reads for downstream processing '''
     input:
-        "samples/{sampid}/bt2.sorted.bam"
+        "samples/{sampid}/{fontana}/bt2.sorted.bam"
     output:
-        "samples/{sampid}/spanning.bam",
-        "samples/{sampid}/spanning_summary.txt"
+        "samples/{sampid}/{fontana}/spanning.bam",
+        "samples/{sampid}/{fontana}/spanning_summary.txt"
     conda:
         "envs/processIllumina.yaml"
     shell:
@@ -161,10 +162,10 @@ rule filter_spanning_reads:
 rule sortbam2:
     ''' sort and index spanning.bam file '''
     input:
-        "samples/{sampid}/spanning.bam"
+        "samples/{sampid}/{fontana}/spanning.bam"
     output:
-        "samples/{sampid}/spanning.sorted.bam",
-        "samples/{sampid}/spanning.sorted.bam.bai"
+        "samples/{sampid}/{fontana}/spanning.sorted.bam",
+        "samples/{sampid}/{fontana}/spanning.sorted.bam.bai"
     conda:
         "envs/processIllumina.yaml"
     shell:
@@ -173,9 +174,9 @@ rule sortbam2:
 
 rule checkbam:
     input:
-        "samples/{sampid}/spanning.sorted.bam"
+        "samples/{sampid}/{fontana}/spanning.sorted.bam"
     output:
-        "samples/{sampid}/bam_summary.txt"
+        "samples/{sampid}/{fontana}/bam_summary.txt"
     conda:
         "envs/processIllumina.yaml"
     shell:
@@ -188,18 +189,18 @@ rule checkbam:
 
 rule checkbamoutput:
     input:
-        "samples/{sampid}/bam_summary.txt"
+        "samples/{sampid}/{fontana}/bam_summary.txt"
     output:
-        "samples/{sampid}/bam_status.txt"
+        "samples/{sampid}/{fontana}/bam_status.txt"
     params:
-        outdir = "samples/{sampid}"
+        outdir = "samples/{sampid}/{fontana}"
     shell:
         "bash scripts/checkbamoutput.sh {input} {output} {params.outdir} "
 
 rule bamlist:
     input:
-        expand("samples/{s}/bam_status.txt", s=SAMPLES)
+        expand("samples/{s}/{f}/bam_status.txt", s=SAMPLES, f=fontana_dir)
     output:
         "bam_list.txt"
     shell: 
-        "ls samples/*/spanning.sorted.bam >> {output} "
+        "ls samples/*/fontana*/spanning.sorted.bam >> {output} "

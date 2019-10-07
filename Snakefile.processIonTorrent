@@ -15,17 +15,17 @@ localrules: all_processing, complete_sample_processing, checkbamoutput, bamlist
 
 rule all_processing:
     input:
-        expand("samples/{s}/completed_processing.txt", s=SAMPLES)
+        expand("samples/{s}/{f}/completed_processing.txt", s=SAMPLES, f=fontana_dir)
 
 rule complete_sample_processing:
     output:
-        touch("samples/{sampid}/completed_processing.txt")
+        touch("samples/{sampid}/{fontana}/completed_processing.txt")
     input:
-        "samples/{sampid}/bam_status.txt",
+        "samples/{sampid}/{fontana}/bam_status.txt",
         "bam_list.txt",
-        "samples/{sampid}/bam_summary.txt",
-        "samples/{sampid}/bam_summary.txt",
-        "samples/{sampid}/spanning_summary.txt"
+        "samples/{sampid}/{fontana}/bam_summary.txt",
+        "samples/{sampid}/{fontana}/bam_summary.txt",
+        "samples/{sampid}/{fontana}/spanning_summary.txt"
 
 
 # snakemake automatically checks if the files are present; if not, it outputs: "Missing input files for rule .."
@@ -34,7 +34,7 @@ rule bamtofastq:
     input:
         "samples/{sampid}/original.bam"
     output:
-        "samples/{sampid}/original.fq"
+        "samples/{sampid}/{fontana}/original.fq"
     conda:
         "envs/processIonTorrent.yaml"
     shell:
@@ -43,12 +43,12 @@ rule bamtofastq:
 
 rule trimmomatic:
     input:
-        fq = "samples/{sampid}/original.fq",
+        fq = "samples/{sampid}/{fontana}/original.fq",
         trim_adapters = config['adapters']['SE']
     output:
-        trimmedfq = "samples/{sampid}/trimmed.fastq.gz",
-        summary = "samples/{sampid}/trimmomatic_summary.out",
-        trimlog = "samples/{sampid}/trimmomatic_log.out"
+        trimmedfq = "samples/{sampid}/{fontana}/trimmed.fastq.gz",
+        summary = "samples/{sampid}/{fontana}/trimmomatic_summary.out",
+        trimlog = "samples/{sampid}/{fontana}/trimmomatic_log.out"
     params:
         leading = config['trimmomatic']['leading'],
         trailing = config['trimmomatic']['trailing'],
@@ -75,12 +75,12 @@ rule trimmomatic:
 rule align_hg19:
     ''' Align trimmed FASTQ to HG19 '''
     input:
-        "samples/{sampid}/trimmed.fastq.gz",
+        "samples/{sampid}/{fontana}/trimmed.fastq.gz",
         expand(config['bt2idx'] + ".{i}.bt2", i = range(1, 5)),
         expand(config['bt2idx'] + ".rev.{i}.bt2", i = range(1, 3))
     output:
-        "samples/{sampid}/bt2.unsorted.bam",
-        "samples/{sampid}/bt2.summary.txt"
+        "samples/{sampid}/{fontana}/bt2.unsorted.bam",
+        "samples/{sampid}/{fontana}/bt2.summary.txt"
     params:
         bowtie2_args = dict_args(config['bowtie2'])
     threads: snakemake.utils.available_cpu_count()
@@ -90,8 +90,8 @@ rule align_hg19:
         "(bowtie2 "
         "-p {threads} "
         "{params.bowtie2_args} "
-        "--rg-id $(basename $(dirname {input[0]})) "
-        "--rg SM:$(basename $(dirname {input[0]})) "
+        "--rg-id $(basename $(dirname $(dirname {input[0]}))) "
+        "--rg SM:$(basename $(dirname $(dirname {input[0]}))) "
         "-x {config[bt2idx]} "
         "-U {input[0]} | "
         "samtools view -b > {output[0]}"
@@ -101,10 +101,10 @@ rule align_hg19:
 rule sortbam1:
     ''' sort and index unsorted.bam file '''
     input:
-        "samples/{sampid}/bt2.unsorted.bam"
+        "samples/{sampid}/{fontana}/bt2.unsorted.bam"
     output:
-        "samples/{sampid}/bt2.sorted.bam",
-        "samples/{sampid}/bt2.sorted.bam.bai"
+        "samples/{sampid}/{fontana}/bt2.sorted.bam",
+        "samples/{sampid}/{fontana}/bt2.sorted.bam.bai"
     conda:
         "envs/processIonTorrent.yaml"
     shell:
@@ -115,10 +115,10 @@ rule sortbam1:
 rule filter_spanning_reads:
     ''' filter only spanned reads for downstream processing '''
     input:
-        "samples/{sampid}/bt2.sorted.bam"
+        "samples/{sampid}/{fontana}/bt2.sorted.bam"
     output:
-        "samples/{sampid}/spanning.bam",
-        "samples/{sampid}/spanning_summary.txt"
+        "samples/{sampid}/{fontana}/spanning.bam",
+        "samples/{sampid}/{fontana}/spanning_summary.txt"
     conda:
         "envs/processIonTorrent.yaml"
     shell:
@@ -129,10 +129,10 @@ rule filter_spanning_reads:
 rule sortbam2:
     ''' sort and index spanning.bam file '''
     input:
-        "samples/{sampid}/spanning.bam"
+        "samples/{sampid}/{fontana}/spanning.bam"
     output:
-        "samples/{sampid}/spanning.sorted.bam",
-        "samples/{sampid}/spanning.sorted.bam.bai"
+        "samples/{sampid}/{fontana}/spanning.sorted.bam",
+        "samples/{sampid}/{fontana}/spanning.sorted.bam.bai"
     conda:
         "envs/processIonTorrent.yaml"
     shell:
@@ -142,9 +142,9 @@ rule sortbam2:
 
 rule checkbam:
     input:
-        "samples/{sampid}/spanning.sorted.bam"
+        "samples/{sampid}/{fontana}/spanning.sorted.bam"
     output:
-        "samples/{sampid}/bam_summary.txt"
+        "samples/{sampid}/{fontana}/bam_summary.txt"
     conda:
         "envs/processIonTorrent.yaml"
     shell:
@@ -157,19 +157,19 @@ rule checkbam:
 
 rule checkbamoutput:
     input:
-        "samples/{sampid}/bam_summary.txt"
+        "samples/{sampid}/{fontana}/bam_summary.txt"
     output:
-        "samples/{sampid}/bam_status.txt"
+        "samples/{sampid}/{fontana}/bam_status.txt"
     params:
-        outdir = "samples/{sampid}"
+        outdir = "samples/{sampid}/{fontana}"
     shell:
         "bash scripts/checkbamoutput.sh {input} {output} {params.outdir} "
 
 
 rule bamlist:
     input:
-        expand("samples/{s}/bam_status.txt", s=SAMPLES)
+        expand("samples/{s}/{f}/bam_status.txt", s=SAMPLES, f=fontana_dir)
     output:
         "bam_list.txt"
     shell: 
-        "ls samples/*/spanning.sorted.bam >> {output} "
+        "ls samples/*/fontana*/spanning.sorted.bam >> {output} "
